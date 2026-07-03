@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  @apply bg-neutral-50 text-ink antialiased;
+}
+
+/* Focus clavier visible partout - accessibilité */
+:focus-visible {
+  outline: 2px solid #FF6A00;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
