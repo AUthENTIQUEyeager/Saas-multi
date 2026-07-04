@@ -9,7 +9,11 @@ export async function redirectByRole(supabase: SupabaseClient, userId: string): 
     .from('profiles')
     .select('role, is_active')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
+
+  if (error) {
+    console.error('redirectByRole - erreur Supabase:', error.message);
+  }
 
   if (error || !profile) {
     return '/login?error=profil_introuvable';

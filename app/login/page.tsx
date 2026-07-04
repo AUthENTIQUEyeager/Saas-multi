@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { redirectByRole } from '@/lib/auth/redirectByRole';
 import { Button } from '@/components/ui/Button';
@@ -15,7 +15,6 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,8 +38,9 @@ function LoginForm() {
     }
 
     const destination = await redirectByRole(supabase, data.user.id);
-    router.push(destination);
-    router.refresh();
+    // Navigation complète (et non router.push) : garantit que le cookie de
+    // session est bien envoyé au serveur avant que le middleware ne s'exécute.
+    window.location.href = destination;
   }
 
   return (
