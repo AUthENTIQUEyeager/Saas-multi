@@ -38,15 +38,25 @@ export default async function AdminShopsPage() {
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {(shops as Shop[] | null)?.map((shop) => (
-              <tr key={shop.id} className="hover:bg-neutral-50">
-                <td className="px-5 py-3 font-medium text-ink">{shop.name}</td>
-                <td className="px-5 py-3 text-neutral-600">{shop.phone ?? '—'}</td>
-                <td className="px-5 py-3 text-neutral-600">{statusLabel[shop.subscription_status]}</td>
+              <tr key={shop.id} className="cursor-pointer hover:bg-neutral-50">
+                <td className="px-5 py-3 font-medium text-ink">
+                  <Link href={`/admin/shops/${shop.id}`} className="block">{shop.name}</Link>
+                </td>
                 <td className="px-5 py-3 text-neutral-600">
-                  {shop.subscription_end_date ? formatDate(shop.subscription_end_date) : '—'}
+                  <Link href={`/admin/shops/${shop.id}`} className="block">{shop.phone ?? '—'}</Link>
+                </td>
+                <td className="px-5 py-3 text-neutral-600">
+                  <Link href={`/admin/shops/${shop.id}`} className="block">{statusLabel[shop.subscription_status]}</Link>
+                </td>
+                <td className="px-5 py-3 text-neutral-600">
+                  <Link href={`/admin/shops/${shop.id}`} className="block">
+                    {shop.subscription_end_date ? formatDate(shop.subscription_end_date) : '—'}
+                  </Link>
                 </td>
                 <td className="px-5 py-3">
-                  <Badge tone={statusTone[shop.subscription_status]}>{statusLabel[shop.subscription_status]}</Badge>
+                  <Link href={`/admin/shops/${shop.id}`} className="block">
+                    <Badge tone={statusTone[shop.subscription_status]}>{statusLabel[shop.subscription_status]}</Badge>
+                  </Link>
                 </td>
               </tr>
             ))}

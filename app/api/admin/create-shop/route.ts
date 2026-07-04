@@ -3,11 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
- * Remplace l'Edge Function Supabase `create-shop` : même logique, mais
- * déployée automatiquement avec le reste du site sur Vercel (pas besoin
- * de CLI Supabase). Vérifie que l'appelant est bien super_admin via son
- * cookie de session, puis utilise la clé secrète pour créer le compte
- * manager et la boutique.
+ * Création d'une boutique. Gère aussi le rattachement du patron :
+ * - ownerMode = 'existing' : lie la boutique à un patron déjà présent en base
+ *   (owner_shops), pour qu'il garde une seule interface /owner pour toutes
+ *   ses boutiques.
+ * - ownerMode = 'new' : crée un nouveau compte patron puis le lie.
+ * - ownerMode = 'none' : aucune liaison pour l'instant.
  */
 export async function POST(request: Request) {
   try {
@@ -24,23 +25,35 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, address, phone, subscriptionEndDate, managerName, managerEmail, managerPassword } = body;
+    const {
+      name, address, phone, subscriptionEndDate,
+      managerName, managerEmail, managerPassword,
+      ownerMode, existingOwnerId, ownerName, ownerEmail, ownerPassword
+    } = body;
 
     if (!name || !managerEmail || !managerPassword) {
       return NextResponse.json({ error: 'Champs obligatoires manquants' }, { status: 400 });
     }
+    if (ownerMode === 'existing' && !existingOwnerId) {
+      return NextResponse.json({ error: 'Aucun patron sélectionné' }, { status: 400 });
+    }
+    if (ownerMode === 'new' && (!ownerName || !ownerEmail || !ownerPassword)) {
+      return NextResponse.json({ error: 'Champs du nouveau patron manquants' }, { status: 400 });
+    }
 
     const admin = createAdminClient();
 
-    const { data: newUser, error: userError } = await admin.auth.admin.createUser({
+    // 1. Compte manager
+    const { data: newManager, error: managerError } = await admin.auth.admin.createUser({
       email: managerEmail,
       password: managerPassword,
       email_confirm: true
     });
-    if (userError || !newUser.user) {
-      return NextResponse.json({ error: userError?.message ?? 'Erreur création utilisateur' }, { status: 400 });
+    if (managerError || !newManager.user) {
+      return NextResponse.json({ error: managerError?.message ?? 'Erreur création du manager' }, { status: 400 });
     }
 
+    // 2. Boutique
     const { data: shop, error: shopError } = await admin
       .from('shops')
       .insert({
@@ -56,14 +69,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: shopError.message }, { status: 400 });
     }
 
-    const { error: profileError } = await admin.from('profiles').insert({
-      id: newUser.user.id,
+    // 3. Profil manager lié à la boutique
+    const { error: managerProfileError } = await admin.from('profiles').insert({
+      id: newManager.user.id,
       full_name: managerName,
       role: 'manager',
       shop_id: shop.id
     });
-    if (profileError) {
-      return NextResponse.json({ error: profileError.message }, { status: 400 });
+    if (managerProfileError) {
+      return NextResponse.json({ error: managerProfileError.message }, { status: 400 });
+    }
+
+    // 4. Patron (selon le mode choisi)
+    let ownerId: string | null = null;
+
+    if (ownerMode === 'existing') {
+      ownerId = existingOwnerId;
+    } else if (ownerMode === 'new') {
+      const { data: newOwner, error: ownerError } = await admin.auth.admin.createUser({
+        email: ownerEmail,
+        password: ownerPassword,
+        email_confirm: true
+      });
+      if (ownerError || !newOwner.user) {
+        return NextResponse.json({ error: ownerError?.message ?? 'Erreur création du patron' }, { status: 400 });
+      }
+      const { error: ownerProfileError } = await admin.from('profiles').insert({
+        id: newOwner.user.id,
+        full_name: ownerName,
+        role: 'owner'
+      });
+      if (ownerProfileError) {
+        return NextResponse.json({ error: ownerProfileError.message }, { status: 400 });
+      }
+      ownerId = newOwner.user.id;
+    }
+
+    if (ownerId) {
+      const { error: linkError } = await admin.from('owner_shops').insert({ owner_id: ownerId, shop_id: shop.id });
+      if (linkError) {
+        return NextResponse.json({ error: linkError.message }, { status: 400 });
+      }
+      await admin.from('shops').update({ owner_id: ownerId }).eq('id', shop.id);
     }
 
     await admin.from('audit_logs').insert({

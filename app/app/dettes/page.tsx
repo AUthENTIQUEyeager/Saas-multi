@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { formatMontant, formatDate } from '@/lib/utils';
+import { DebtPaymentForm } from '@/components/dashboard/DebtPaymentForm';
 
 export default async function DettesPage() {
   const supabase = createClient();
@@ -27,6 +28,7 @@ export default async function DettesPage() {
             <th className="px-5 py-3">Restant</th>
             <th className="px-5 py-3">Échéance</th>
             <th className="px-5 py-3">Statut</th>
+            <th className="px-5 py-3">Action</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-100">
@@ -45,11 +47,14 @@ export default async function DettesPage() {
                     {remaining <= 0 ? 'Soldée' : overdue ? 'En retard' : 'En cours'}
                   </Badge>
                 </td>
+                <td className="px-5 py-3">
+                  {remaining > 0 && <DebtPaymentForm debtId={d.id} remaining={remaining} />}
+                </td>
               </tr>
             );
           })}
           {!debts?.length && (
-            <tr><td colSpan={6} className="px-5 py-10 text-center text-neutral-400">Aucune dette enregistrée.</td></tr>
+            <tr><td colSpan={7} className="px-5 py-10 text-center text-neutral-400">Aucune dette enregistrée.</td></tr>
           )}
         </tbody>
       </table>
