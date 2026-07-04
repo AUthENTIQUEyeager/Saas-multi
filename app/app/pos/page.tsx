@@ -4,8 +4,13 @@ import { PosClient } from '@/components/pos/PosClient';
 export default async function PosPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from('profiles').select('shop_id').eq('id', user!.id).single();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('shop_id, shops(name)')
+    .eq('id', user!.id)
+    .single();
   const shopId = profile!.shop_id!;
+  const shopName = (profile as any)?.shops?.name ?? 'Boutique';
 
   const { data: products } = await supabase
     .from('products')
@@ -19,6 +24,7 @@ export default async function PosPage() {
   return (
     <PosClient
       shopId={shopId}
+      shopName={shopName}
       cashierId={user!.id}
       initialProducts={products ?? []}
       customers={customers ?? []}

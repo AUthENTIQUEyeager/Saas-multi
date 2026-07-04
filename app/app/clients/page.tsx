@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { ClientForm } from '@/components/dashboard/ClientForm';
+import Link from 'next/link';
 
 export default async function ClientsPage() {
   const supabase = createClient();
@@ -20,8 +21,12 @@ export default async function ClientsPage() {
           <tbody className="divide-y divide-neutral-100">
             {customers?.map((c) => (
               <tr key={c.id} className="hover:bg-neutral-50">
-                <td className="px-5 py-3 font-medium text-ink">{c.name}</td>
-                <td className="px-5 py-3 text-neutral-600">{c.phone ?? '—'}</td>
+                <td className="px-5 py-3 font-medium text-ink">
+                  <Link href={`/app/clients/${c.id}`} className="block hover:text-brand">{c.name}</Link>
+                </td>
+                <td className="px-5 py-3 text-neutral-600">
+                  <Link href={`/app/clients/${c.id}`} className="block">{c.phone ?? '—'}</Link>
+                </td>
               </tr>
             ))}
             {!customers?.length && (

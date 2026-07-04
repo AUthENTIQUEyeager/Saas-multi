@@ -22,26 +22,33 @@ export default async function ProduitsPage() {
           <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
             <tr>
               <th className="px-5 py-3">Produit</th>
-              <th className="px-5 py-3">Prix</th>
+              <th className="px-5 py-3">Achat</th>
+              <th className="px-5 py-3">Vente</th>
+              <th className="px-5 py-3">Marge</th>
               <th className="px-5 py-3">Stock</th>
               <th className="px-5 py-3">Statut</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
-            {products?.map((p) => (
-              <tr key={p.id} className="hover:bg-neutral-50">
-                <td className="px-5 py-3 font-medium text-ink">{p.name}</td>
-                <td className="px-5 py-3 text-neutral-600">{formatMontant(p.price)}</td>
-                <td className="px-5 py-3 text-neutral-600">{p.stock_quantity}</td>
-                <td className="px-5 py-3">
-                  <Badge tone={p.stock_quantity <= p.low_stock_threshold ? 'orange' : 'vert'}>
-                    {p.stock_quantity <= p.low_stock_threshold ? 'Stock bas' : 'OK'}
-                  </Badge>
-                </td>
-              </tr>
-            ))}
+            {products?.map((p) => {
+              const margin = p.cost_price != null ? p.price - p.cost_price : null;
+              return (
+                <tr key={p.id} className="hover:bg-neutral-50">
+                  <td className="px-5 py-3 font-medium text-ink">{p.name}</td>
+                  <td className="px-5 py-3 text-neutral-500">{p.cost_price != null ? formatMontant(p.cost_price) : '—'}</td>
+                  <td className="px-5 py-3 text-neutral-600">{formatMontant(p.price)}</td>
+                  <td className="px-5 py-3 font-medium text-emerald-600">{margin != null ? formatMontant(margin) : '—'}</td>
+                  <td className="px-5 py-3 text-neutral-600">{p.stock_quantity}</td>
+                  <td className="px-5 py-3">
+                    <Badge tone={p.stock_quantity <= p.low_stock_threshold ? 'orange' : 'vert'}>
+                      {p.stock_quantity <= p.low_stock_threshold ? 'Stock bas' : 'OK'}
+                    </Badge>
+                  </td>
+                </tr>
+              );
+            })}
             {!products?.length && (
-              <tr><td colSpan={4} className="px-5 py-10 text-center text-neutral-400">Aucun produit. Ajoutez-en un.</td></tr>
+              <tr><td colSpan={6} className="px-5 py-10 text-center text-neutral-400">Aucun produit. Ajoutez-en un.</td></tr>
             )}
           </tbody>
         </table>

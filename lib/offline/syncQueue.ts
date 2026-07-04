@@ -1,20 +1,44 @@
 'use client';
 
 import { createClient } from '../supabase/client';
-import { db, getUnsyncedSales, markSaleSynced } from './db';
+import { db, getUnsyncedSales, markSaleSynced, getUnsyncedCustomers, markCustomerSynced } from './db';
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error' | 'offline';
 
 /**
- * Parcourt les ventes en attente et les pousse vers Supabase via la fonction
- * RPC process_sale (idempotente grâce à local_uuid). Ne supprime jamais une
- * vente locale tant que le serveur n'a pas confirmé - en cas d'échec réseau,
- * elle reste en file et sera retentée au prochain appel.
+ * Synchronise d'abord les clients en attente (car une vente peut référencer
+ * un customer_id qui n'existe pas encore côté serveur), puis les ventes.
+ * L'upsert est idempotent grâce à l'UUID généré côté client.
  */
+async function syncPendingCustomers(): Promise<{ synced: number; failed: number }> {
+  const supabase = createClient();
+  const pending = await getUnsyncedCustomers();
+  let synced = 0;
+  let failed = 0;
+
+  for (const customer of pending) {
+    const { error } = await supabase
+      .from('customers')
+      .upsert({ id: customer.id, shop_id: customer.shop_id, name: customer.name, phone: customer.phone });
+
+    if (error) {
+      failed += 1;
+      await db.pendingCustomers.update(customer.id, { sync_error: error.message });
+    } else {
+      await markCustomerSynced(customer.id);
+      synced += 1;
+    }
+  }
+
+  return { synced, failed };
+}
+
 export async function syncPendingSales(): Promise<{ synced: number; failed: number }> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return { synced: 0, failed: 0 };
   }
+
+  await syncPendingCustomers();
 
   const supabase = createClient();
   const pending = await getUnsyncedSales();
@@ -43,15 +67,15 @@ export async function syncPendingSales(): Promise<{ synced: number; failed: numb
   return { synced, failed };
 }
 
-/** Nombre de ventes en attente de synchronisation - alimente l'indicateur visuel. */
+/** Nombre total d'éléments en attente de synchronisation (ventes + clients). */
 export async function countPendingSales(): Promise<number> {
-  return db.pendingSales.where('synced').equals(0).count();
+  const [sales, customers] = await Promise.all([
+    db.pendingSales.where('synced').equals(0).count(),
+    db.pendingCustomers.where('synced').equals(0).count()
+  ]);
+  return sales + customers;
 }
 
-/**
- * Enregistre les écouteurs online/offline + Background Sync API et déclenche
- * une synchronisation automatique dès que la connexion revient.
- */
 export function registerAutoSync(onStatusChange: (status: SyncStatus) => void) {
   if (typeof window === 'undefined') return () => {};
 

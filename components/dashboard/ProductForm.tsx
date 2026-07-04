@@ -13,7 +13,7 @@ export function ProductForm({ shopId, categories }: { shopId: string; categories
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [form, setForm] = useState({ name: '', price: '', stock_quantity: '', category_id: '' });
+  const [form, setForm] = useState({ name: '', price: '', cost_price: '', stock_quantity: '', category_id: '' });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,6 +26,7 @@ export function ProductForm({ shopId, categories }: { shopId: string; categories
       shop_id: shopId,
       name: form.name,
       price: Number(form.price),
+      cost_price: form.cost_price ? Number(form.cost_price) : null,
       stock_quantity: Number(form.stock_quantity) || 0,
       category_id: form.category_id || null
     });
@@ -37,7 +38,7 @@ export function ProductForm({ shopId, categories }: { shopId: string; categories
       return;
     }
 
-    setForm({ name: '', price: '', stock_quantity: '', category_id: '' });
+    setForm({ name: '', price: '', cost_price: '', stock_quantity: '', category_id: '' });
     setSuccess(true);
     router.refresh();
     setTimeout(() => setSuccess(false), 2500);
@@ -55,12 +56,23 @@ export function ProductForm({ shopId, categories }: { shopId: string; categories
         )}
         <Input label="Nom" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input
-          label="Prix (FCFA)"
+          label="Prix d'achat (FCFA)"
+          type="number"
+          value={form.cost_price}
+          onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
+        />
+        <Input
+          label="Prix de vente (FCFA)"
           type="number"
           required
           value={form.price}
           onChange={(e) => setForm({ ...form, price: e.target.value })}
         />
+        {form.price && form.cost_price && (
+          <p className="-mt-2 text-xs text-neutral-400">
+            Bénéfice unitaire estimé : {(Number(form.price) - Number(form.cost_price)).toLocaleString('fr-FR')} FCFA
+          </p>
+        )}
         <Input
           label="Quantité en stock"
           type="number"
