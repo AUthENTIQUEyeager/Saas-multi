@@ -2,34 +2,33 @@ import Dexie, { type Table } from 'dexie';
 
 /**
  * Base IndexedDB locale (via Dexie.js).
- * Stocke les ventes ET les nouveaux clients créés hors-ligne, en attente de
- * synchronisation, ainsi qu'un cache léger des produits pour que le POS
- * reste utilisable sans connexion internet.
  *
- * Astuce clé : l'UUID du client est généré CÔTÉ CLIENT (crypto.randomUUID)
- * au moment de la vente, avant même de savoir si on est en ligne. La vente
- * peut donc référencer ce customer_id immédiatement, que le client soit
- * synchronisé tout de suite ou plus tard.
+ * IMPORTANT : le champ `synced` est stocké en NOMBRE (0 ou 1), jamais en
+ * booléen. IndexedDB n'accepte pas les booléens comme clé de recherche
+ * indexée (ce n'est pas un type de clé valide selon la spec) - une requête
+ * du type where('synced').equals(0) sur un champ booléen ne trouve jamais
+ * rien, silencieusement, même si la donnée existe. C'est ce qui empêchait
+ * toute synchronisation de se déclencher.
  */
 
 export interface PendingSale {
-  local_uuid: string; // identifiant idempotent, généré côté client
+  local_uuid: string;
   shop_id: string;
   cashier_id: string;
   customer_id: string | null;
   items: { product_id: string; quantity: number; unit_price: number }[];
   discount: number;
   created_at: string;
-  synced: boolean;
+  synced: 0 | 1;
   sync_error?: string;
 }
 
 export interface PendingCustomer {
-  id: string; // UUID généré côté client, réutilisé tel quel côté serveur
+  id: string;
   shop_id: string;
   name: string;
   phone: string | null;
-  synced: boolean;
+  synced: 0 | 1;
   sync_error?: string;
 }
 
@@ -61,6 +60,30 @@ class OfflineDB extends Dexie {
       cachedProducts: 'id, shop_id, name',
       pendingCustomers: 'id, shop_id, synced'
     });
+    // v3 : corrige les enregistrements existants où `synced` a été stocké
+    // en booléen (bug initial) en le convertissant en 0/1, pour que les
+    // ventes déjà coincées dans le navigateur redeviennent synchronisables
+    // sans que la personne ait besoin de vider son cache.
+    this.version(3)
+      .stores({
+        pendingSales: 'local_uuid, shop_id, synced, created_at',
+        cachedProducts: 'id, shop_id, name',
+        pendingCustomers: 'id, shop_id, synced'
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('pendingSales')
+          .toCollection()
+          .modify((sale: any) => {
+            sale.synced = sale.synced === true || sale.synced === 1 ? 1 : 0;
+          });
+        await tx
+          .table('pendingCustomers')
+          .toCollection()
+          .modify((customer: any) => {
+            customer.synced = customer.synced === true || customer.synced === 1 ? 1 : 0;
+          });
+      });
   }
 }
 
@@ -68,7 +91,7 @@ export const db = new OfflineDB();
 
 // --- Ventes ---
 export async function queueSale(sale: Omit<PendingSale, 'synced'>) {
-  await db.pendingSales.put({ ...sale, synced: false });
+  await db.pendingSales.put({ ...sale, synced: 0 });
 }
 
 export async function getUnsyncedSales(): Promise<PendingSale[]> {
@@ -76,12 +99,12 @@ export async function getUnsyncedSales(): Promise<PendingSale[]> {
 }
 
 export async function markSaleSynced(local_uuid: string) {
-  await db.pendingSales.update(local_uuid, { synced: true });
+  await db.pendingSales.update(local_uuid, { synced: 1 });
 }
 
 // --- Clients (créés depuis le POS) ---
 export async function queueCustomer(customer: Omit<PendingCustomer, 'synced'>) {
-  await db.pendingCustomers.put({ ...customer, synced: false });
+  await db.pendingCustomers.put({ ...customer, synced: 0 });
 }
 
 export async function getUnsyncedCustomers(): Promise<PendingCustomer[]> {
@@ -89,7 +112,7 @@ export async function getUnsyncedCustomers(): Promise<PendingCustomer[]> {
 }
 
 export async function markCustomerSynced(id: string) {
-  await db.pendingCustomers.update(id, { synced: true });
+  await db.pendingCustomers.update(id, { synced: 1 });
 }
 
 // --- Produits (cache pour usage hors-ligne) ---
@@ -101,7 +124,6 @@ export async function getCachedProducts(shopId: string): Promise<CachedProduct[]
   return db.cachedProducts.where('shop_id').equals(shopId).toArray();
 }
 
-/** Décrémente le stock en cache localement pour un retour visuel immédiat (optimistic UI). */
 export async function decrementCachedStock(productId: string, quantity: number) {
   const product = await db.cachedProducts.get(productId);
   if (product) {
