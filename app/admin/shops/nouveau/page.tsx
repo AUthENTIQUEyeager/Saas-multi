@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
 /**
  * Création d'une boutique = action sensible.
- * Le formulaire appelle l'Edge Function `create-shop` (jamais un insert direct
- * côté client) car elle doit aussi créer le compte manager via l'API admin
- * de Supabase Auth, qui nécessite la service_role key.
+ * Le formulaire appelle la route API interne /api/admin/create-shop
+ * (jamais un insert direct côté client) car elle doit aussi créer le
+ * compte manager via l'API admin de Supabase Auth, qui nécessite la
+ * clé secrète (service_role / sb_secret_...).
  */
 export default function NewShopPage() {
   const router = useRouter();
@@ -36,15 +36,9 @@ export default function NewShopPage() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const { data: sessionData } = await supabase.auth.getSession();
-
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-shop`, {
+    const res = await fetch('/api/admin/create-shop', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${sessionData.session?.access_token}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form)
     });
 
