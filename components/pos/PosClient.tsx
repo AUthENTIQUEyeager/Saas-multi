@@ -193,7 +193,12 @@ export function PosClient({
     setCheckingOut(false);
 
     if (typeof navigator !== 'undefined' && navigator.onLine) {
-      syncPendingSales();
+      const result = await syncPendingSales();
+      if (result.failed > 0) {
+        setError(
+          "Vente enregistrée localement, mais la synchronisation avec le serveur a échoué. Vérifie l'indicateur en haut à droite pour le détail."
+        );
+      }
     }
   }
 

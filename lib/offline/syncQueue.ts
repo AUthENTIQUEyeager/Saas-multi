@@ -76,6 +76,20 @@ export async function countPendingSales(): Promise<number> {
   return sales + customers;
 }
 
+/**
+ * Retourne le message d'erreur de la dernière tentative de synchro échouée,
+ * pour l'afficher à l'écran au lieu de le laisser invisible dans IndexedDB.
+ */
+export async function getLastSyncError(): Promise<string | null> {
+  const failedSales = await db.pendingSales.where('synced').equals(0).toArray();
+  const withError = failedSales.find((s) => s.sync_error);
+  if (withError?.sync_error) return withError.sync_error;
+
+  const failedCustomers = await db.pendingCustomers.where('synced').equals(0).toArray();
+  const withCustomerError = failedCustomers.find((c) => c.sync_error);
+  return withCustomerError?.sync_error ?? null;
+}
+
 export function registerAutoSync(onStatusChange: (status: SyncStatus) => void) {
   if (typeof window === 'undefined') return () => {};
 
