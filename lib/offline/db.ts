@@ -39,6 +39,7 @@ export interface CachedProduct {
   price: number;
   cost_price: number | null;
   stock_quantity: number;
+  low_stock_threshold: number;
   category_id: string | null;
   image_url: string | null;
   updated_at: string;
@@ -122,6 +123,35 @@ export async function cacheProducts(products: CachedProduct[]) {
 
 export async function getCachedProducts(shopId: string): Promise<CachedProduct[]> {
   return db.cachedProducts.where('shop_id').equals(shopId).toArray();
+}
+
+/**
+ * Somme les ventes présentes dans le cache local (synchronisées ou non)
+ * créées après un instant donné, pour un dashboard qui reste réactif
+ * même sans connexion. Ne dépend pas du flag `synced` : ça évite de
+ * compter deux fois une vente une fois qu'elle se synchronise, tant que
+ * la référence temporelle (le chargement de la page) ne change pas.
+ */
+export async function getLocalSalesSince(shopId: string, sinceIso: string): Promise<{ total: number; count: number }> {
+  const rows = await db.pendingSales.where('shop_id').equals(shopId).toArray();
+  const recent = rows.filter((r) => r.created_at > sinceIso);
+  const total = recent.reduce(
+    (sum, r) => sum + r.items.reduce((s, i) => s + i.quantity * i.unit_price, 0),
+    0
+  );
+  return { total, count: recent.length };
+}
+
+/**
+ * Liste les produits en stock bas directement depuis le cache local -
+ * reflète les décréments de vente faits hors-ligne, sans attendre la
+ * synchronisation ni une connexion.
+ */
+export async function getLocalLowStock(shopId: string): Promise<{ id: string; name: string; stock_quantity: number }[]> {
+  const products = await db.cachedProducts.where('shop_id').equals(shopId).toArray();
+  return products
+    .filter((p) => p.stock_quantity <= p.low_stock_threshold)
+    .map((p) => ({ id: p.id, name: p.name, stock_quantity: p.stock_quantity }));
 }
 
 export async function decrementCachedStock(productId: string, quantity: number) {

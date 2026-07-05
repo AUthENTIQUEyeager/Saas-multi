@@ -17,6 +17,7 @@ interface PosProduct {
   name: string;
   price: number;
   stock_quantity: number;
+  low_stock_threshold: number;
   category_id: string | null;
   image_url: string | null;
 }
@@ -76,6 +77,7 @@ export function PosClient({
         price: p.price,
         cost_price: null,
         stock_quantity: p.stock_quantity,
+        low_stock_threshold: p.low_stock_threshold,
         category_id: p.category_id,
         image_url: p.image_url,
         updated_at: new Date().toISOString()
