@@ -90,28 +90,55 @@ export async function getLastSyncError(): Promise<string | null> {
   return withCustomerError?.sync_error ?? null;
 }
 
+/**
+ * Tente une synchronisation en continu, sans dépendre uniquement de
+ * l'événement navigateur 'online' - celui-ci n'est pas fiable partout
+ * (connexion mobile qui va et vient sans vraie coupure détectée, PWA sur
+ * certains navigateurs, etc.). On réessaie donc aussi à intervalle régulier
+ * en filet de sécurité : la vente se synchronise dès que la connexion
+ * redevient utilisable, sans avoir besoin de recharger la page.
+ */
 export function registerAutoSync(onStatusChange: (status: SyncStatus) => void) {
   if (typeof window === 'undefined') return () => {};
 
-  const handleOnline = async () => {
+  let syncing = false;
+
+  async function attemptSync() {
+    if (syncing) return;
+
+    if (!navigator.onLine) {
+      onStatusChange('offline');
+      return;
+    }
+
+    const pending = await countPendingSales();
+    if (pending === 0) {
+      onStatusChange('success');
+      return;
+    }
+
+    syncing = true;
     onStatusChange('syncing');
     const result = await syncPendingSales();
     onStatusChange(result.failed > 0 ? 'error' : 'success');
-  };
+    syncing = false;
+  }
 
   const handleOffline = () => onStatusChange('offline');
 
-  window.addEventListener('online', handleOnline);
+  window.addEventListener('online', attemptSync);
   window.addEventListener('offline', handleOffline);
 
-  if (navigator.onLine) {
-    handleOnline();
-  } else {
-    onStatusChange('offline');
-  }
+  // Premier essai immédiat au montage.
+  attemptSync();
+
+  // Filet de sécurité : retente toutes les 5 secondes, connexion ou pas -
+  // attemptSync() lui-même vérifie navigator.onLine avant d'agir.
+  const interval = setInterval(attemptSync, 5000);
 
   return () => {
-    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('online', attemptSync);
     window.removeEventListener('offline', handleOffline);
+    clearInterval(interval);
   };
 }
