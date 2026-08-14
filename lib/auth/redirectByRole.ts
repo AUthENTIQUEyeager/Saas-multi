@@ -30,6 +30,7 @@ export async function redirectByRole(supabase: SupabaseClient, userId: string): 
       return '/owner';
     case 'manager':
     case 'employee':
+    case 'vendeur':
       return '/app';
     default:
       return '/login';

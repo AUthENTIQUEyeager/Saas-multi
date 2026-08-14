@@ -2,12 +2,17 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { LiveRevenueCard } from '@/components/dashboard/LiveRevenueCard';
 import { LiveStockCard } from '@/components/dashboard/LiveStockCard';
+import { redirect } from 'next/navigation';
 
 export default async function DashboardPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from('profiles').select('shop_id').eq('id', user!.id).single();
+  const { data: profile } = await supabase.from('profiles').select('shop_id, role').eq('id', user!.id).single();
   const shopId = profile!.shop_id!;
+
+  if (profile?.role === 'vendeur') {
+    redirect('/app/pos');
+  }
 
   // Référence temporelle du rendu serveur : tout ce qui est créé APRÈS cet
   // instant (dans le cache local) sera ajouté par-dessus côté client, que

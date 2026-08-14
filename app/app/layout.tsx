@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq('id', user.id)
     .single();
 
-  if (!profile || !['manager', 'employee'].includes(profile.role)) {
+  if (!profile || !['manager', 'employee', 'vendeur'].includes(profile.role)) {
     redirect('/login?error=acces_refuse');
   }
   if (!profile.is_active) {

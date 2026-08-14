@@ -1,19 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import type { Product } from '@/lib/types';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { CheckCircle2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
-export function ProductForm({ shopId, categories }: { shopId: string; categories: { id: string; name: string }[] }) {
+export function ProductForm({
+  shopId,
+  categories,
+  product,
+  onCancel
+}: {
+  shopId: string;
+  categories: { id: string; name: string }[];
+  product?: Product;
+  onCancel?: () => void
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [form, setForm] = useState({ name: '', price: '', cost_price: '', stock_quantity: '', category_id: '' });
+  const [form, setForm] = useState({
+    name: '',
+    price: '',
+    cost_price: '',
+    stock_quantity: '',
+    category_id: ''
+  });
+
+  // Initialize form with product data if editing
+  useEffect(() => {
+    if (product) {
+      setForm({
+        name: product.name,
+        price: product.price.toString(),
+        cost_price: product.cost_price !== null ? product.cost_price.toString() : '',
+        stock_quantity: product.stock_quantity.toString(),
+        category_id: product.category_id || ''
+      });
+    }
+  }, [product]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,23 +53,45 @@ export function ProductForm({ shopId, categories }: { shopId: string; categories
     setSuccess(false);
 
     const supabase = createClient();
-    const { error: insertError } = await supabase.from('products').insert({
-      shop_id: shopId,
-      name: form.name,
-      price: Number(form.price),
-      cost_price: form.cost_price ? Number(form.cost_price) : null,
-      stock_quantity: Number(form.stock_quantity) || 0,
-      category_id: form.category_id || null
-    });
+    let error;
+
+    if (product) {
+      // Update existing product
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({
+          name: form.name,
+          price: Number(form.price),
+          cost_price: form.cost_price ? Number(form.cost_price) : null,
+          stock_quantity: Number(form.stock_quantity) || 0,
+          category_id: form.category_id || null,
+        })
+        .eq('id', product.id);
+      error = updateError;
+    } else {
+      // Insert new product
+      const { error: insertError } = await supabase.from('products').insert({
+        shop_id: shopId,
+        name: form.name,
+        price: Number(form.price),
+        cost_price: form.cost_price ? Number(form.cost_price) : null,
+        stock_quantity: Number(form.stock_quantity) || 0,
+        category_id: form.category_id || null
+      });
+      error = insertError;
+    }
 
     setLoading(false);
 
-    if (insertError) {
-      setError(insertError.message);
+    if (error) {
+      setError(error.message);
       return;
     }
 
-    setForm({ name: '', price: '', cost_price: '', stock_quantity: '', category_id: '' });
+    // Reset form if creating, keep if editing (could reset too)
+    if (!product) {
+      setForm({ name: '', price: '', cost_price: '', stock_quantity: '', category_id: '' });
+    }
     setSuccess(true);
     router.refresh();
     setTimeout(() => setSuccess(false), 2500);
@@ -46,12 +99,13 @@ export function ProductForm({ shopId, categories }: { shopId: string; categories
 
   return (
     <Card>
-      <CardTitle>Ajouter un produit</CardTitle>
+      <CardTitle>{product ? 'Modifier le produit' : 'Ajouter un produit'}</CardTitle>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {error && <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</div>}
         {success && (
           <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700">
-            <CheckCircle2 className="h-4 w-4" /> Produit ajouté
+            <CheckCircle2 className="h-4 w-4" />
+            {product ? 'Produit modifié' : 'Produit ajouté'}
           </div>
         )}
         <Input label="Nom" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -94,7 +148,19 @@ export function ProductForm({ shopId, categories }: { shopId: string; categories
             </select>
           </div>
         )}
-        <Button type="submit" loading={loading}>Ajouter</Button>
+        <Button type="submit" loading={loading}>
+          {product ? 'Modifier' : 'Ajouter'}
+        </Button>
+        {product && onCancel && (
+          <Button
+            type="button"
+            onClick={onCancel}
+            variant="secondary"
+            className="mt-2"
+          >
+            Annuler
+          </Button>
+        )}
       </form>
     </Card>
   );

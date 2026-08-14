@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'owner' | 'manager' | 'employee';
+export type UserRole = 'super_admin' | 'owner' | 'manager' | 'employee' | 'vendeur';
 export type SubscriptionStatus = 'active' | 'suspended' | 'expired' | 'trial';
 export type PaymentStatus = 'paid' | 'partial' | 'unpaid';
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'shipped' | 'delivered' | 'cancelled';

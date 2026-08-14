@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
     if (zone === '/owner' && role !== 'owner') {
       return NextResponse.redirect(new URL('/login?error=acces_refuse', request.url));
     }
-    if (zone === '/app' && role !== 'manager' && role !== 'employee') {
+    if (zone === '/app' && !['manager', 'employee', 'vendeur'].includes(role)) {
       return NextResponse.redirect(new URL('/login?error=acces_refuse', request.url));
     }
   }
