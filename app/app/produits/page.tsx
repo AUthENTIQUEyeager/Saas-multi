@@ -17,7 +17,7 @@ export default function ProduitsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
 
   useEffect(() => {
     async function loadData() {
@@ -102,7 +102,7 @@ export default function ProduitsPage() {
 
   const handleCancelEdit = () => {
     setEditingProductId(null);
-    setEditingProduct(null);
+    setEditingProduct(undefined);
   };
 
   return (
