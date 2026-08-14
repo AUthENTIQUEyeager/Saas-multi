@@ -124,7 +124,7 @@ export function EmployeeForm() {
         )}
 
         <Button type="submit" loading={loading} className="mt-1">
-          {isVendeurSelected ? 'Créer le vendeur' : 'Créer l'employé'}
+          {isVendeurSelected ? 'Créer le vendeur' : "Créer l'employé"}
         </Button>
       </form>
     </Card>
