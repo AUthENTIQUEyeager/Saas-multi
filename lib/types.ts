@@ -5,6 +5,13 @@ export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'shipped' | 'd
 export type ExpenseCategory = 'salary' | 'rent' | 'electricity' | 'transport' | 'purchase' | 'other';
 export type EmployeePermission = 'cashier' | 'stock_manager' | 'delivery' | 'accountant' | 'manager_assistant';
 
+export interface Category {
+  id: string;
+  shop_id: string;
+  name: string;
+  created_at: string;
+}
+
 export interface Profile {
   id: string;
   full_name: string;
